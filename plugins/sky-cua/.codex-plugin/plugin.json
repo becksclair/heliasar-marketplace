@@ -1,6 +1,6 @@
 {
   "name": "sky-cua",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Codex adapter for the cross-platform sky-cua MCP Computer Use runtime.",
   "author": {
     "name": "Rebecca Clair",
