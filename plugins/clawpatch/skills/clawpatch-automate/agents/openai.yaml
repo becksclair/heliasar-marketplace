@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clawpatch Automate"
+  short_description: "Run Clawpatch review-fix-revalidate loops"
+  default_prompt: "Use $clawpatch-automate to run a conservative Clawpatch map, review, report, fix, revalidate, and final report workflow."

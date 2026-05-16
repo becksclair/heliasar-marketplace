@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clawpatch Map"
+  short_description: "Generate Clawpatch feature maps"
+  default_prompt: "Use $clawpatch-map to map this project into Clawpatch feature records and summarize the result."

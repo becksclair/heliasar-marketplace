@@ -1,0 +1,42 @@
+{
+  "name": "clawpatch",
+  "version": "0.1.0",
+  "description": "Codex skills for setting up Clawpatch and running map, review, report, fix, and revalidate workflows.",
+  "author": {
+    "name": "Rebecca Clair",
+    "url": "https://github.com/becksclair"
+  },
+  "homepage": "https://clawpatch.ai/",
+  "repository": "https://github.com/openclaw/clawpatch",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "clawpatch",
+    "code-review",
+    "feature-mapping",
+    "review-automation"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Clawpatch",
+    "shortDescription": "Map, review, fix, and revalidate code with Clawpatch",
+    "longDescription": "Clawpatch adds Codex skills for project setup, semantic feature mapping, AI code review, readable reports, finding-scoped fixes, revalidation, and conservative automated review loops using the local Clawpatch CLI.",
+    "developerName": "Rebecca Clair",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://clawpatch.ai/",
+    "privacyPolicyURL": "https://openai.com/policies/row-privacy-policy/",
+    "termsOfServiceURL": "https://openai.com/policies/row-terms-of-use/",
+    "defaultPrompt": [
+      "Use $clawpatch-setup to prepare this repository for Clawpatch review.",
+      "Use $clawpatch-review and $clawpatch-report to review mapped features and summarize findings.",
+      "Use $clawpatch-automate to run a conservative Clawpatch review, fix, revalidate, and report loop."
+    ],
+    "brandColor": "#334155",
+    "screenshots": []
+  }
+}

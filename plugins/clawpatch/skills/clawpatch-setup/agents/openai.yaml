@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clawpatch Setup"
+  short_description: "Set up Clawpatch for a project"
+  default_prompt: "Use $clawpatch-setup to install Clawpatch if needed, initialize project config, update .gitignore, and verify setup."

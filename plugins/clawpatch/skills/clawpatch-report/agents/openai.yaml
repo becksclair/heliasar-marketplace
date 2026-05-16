@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clawpatch Report"
+  short_description: "Render Clawpatch finding reports"
+  default_prompt: "Use $clawpatch-report to generate a Clawpatch report and render a concise inline summary."

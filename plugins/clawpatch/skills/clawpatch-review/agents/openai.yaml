@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clawpatch Review"
+  short_description: "Review mapped Clawpatch features"
+  default_prompt: "Use $clawpatch-review to run a Clawpatch review over mapped features and summarize findings."

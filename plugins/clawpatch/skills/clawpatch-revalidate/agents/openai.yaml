@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clawpatch Revalidate"
+  short_description: "Revalidate fixed Clawpatch findings"
+  default_prompt: "Use $clawpatch-revalidate to revalidate a specified Clawpatch finding or all pending fixed findings."

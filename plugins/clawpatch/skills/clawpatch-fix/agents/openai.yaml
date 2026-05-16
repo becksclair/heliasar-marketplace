@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clawpatch Fix"
+  short_description: "Fix Clawpatch findings safely"
+  default_prompt: "Use $clawpatch-fix to fix specified Clawpatch findings, or all actionable open findings when none are specified."
