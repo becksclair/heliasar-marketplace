@@ -37,6 +37,8 @@
       "Use $clawpatch-automate to run a conservative Clawpatch review, fix, revalidate, and report loop."
     ],
     "brandColor": "#334155",
+    "composerIcon": "./assets/favicon.svg",
+    "logo": "./assets/favicon.svg",
     "screenshots": []
   }
 }
