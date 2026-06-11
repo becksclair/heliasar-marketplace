@@ -20,6 +20,9 @@ packaged adapter around that runtime, not the runtime boundary itself.
   `SKY_CUA_SERVICE_TCP_ADDR`
 - Wayland/X11 environment probing, AT-SPI app discovery, and targeted
   `get_app_state` selection by app identity or window title
+- defensive Linux detached-session repair: client/service startup can recover
+  missing desktop env and normalize `PATH`, with `doctor.session_env` and
+  `SessionEnvRepaired` diagnostics showing what changed
 - Wayland portal session reuse for ScreenCast metadata and RemoteDesktop input,
   including restore-token persistence under the per-user state directory
 - in-process PipeWire frame capture from the active ScreenCast session, with
@@ -31,6 +34,10 @@ packaged adapter around that runtime, not the runtime boundary itself.
   and focus
 - physical Wayland and X11 routing for `click`, `perform_secondary_action`,
   `scroll`, `drag`, `type_text`, and `press_key`
+- crate-local Linux action execution boundary under
+  `crates/sky-cua-linux/src/actions/`, keeping semantic/physical routing
+  fakeable while `LinuxDesktopBackend::execute_action` remains the public
+  backend entrypoint
 - snapshotless physical actions for current-screen targeting, while
   element-index and semantic actions remain scoped to the snapshot that
   supplied their accessibility context
@@ -38,9 +45,29 @@ packaged adapter around that runtime, not the runtime boundary itself.
   descendant bounds
 - app-action policy in `resources/app-instructions/index.json`, including the
   Kate-scoped `set_value` fallback
-- host-portable workflow guidance in `skills/computer-use-workflows/`
+- host-portable workflow guidance in `skills/computer-use/` and `skills/browser-use/`
+- agent-agnostic screenshot delivery: browser screenshots arrive as MCP image
+  content blocks plus persisted capture paths in one CSS-pixel coordinate
+  space, and `get_app_state` supports `screenshot_delivery: "inline"` for
+  hosts that cannot read files by path
+- Claude Code host support through `.claude-plugin/` (plugin + marketplace
+  manifests) and `scripts/install_mcp_server.py --host claude-code`
 - Windows compile/runtime foundation through `sky-cua-windows`, including
   top-level window fallback snapshots, GDI screenshots, and SendInput actions
+- Linux window targeting through a registry of KWin, X11, GNOME, COSMIC,
+  Hyprland, and i3 backends, with terminal metadata selectors where available
+- Linux compositor cursor overlay and hide/show support through X11/XFixes, the
+  KWin effect, the bundled GNOME Shell extension, Hyprland
+  `cursor:invisible`, the COSMIC bridge prototype, and the dedicated no-patch
+  `cosmic_transparent_xcursor` VM session mode
+- `doctor`, `setup_accessibility`, and `setup_window_targeting` MCP tools with
+  structured readiness reports
+- Codex Desktop compatibility as a `computer-use` companion bundle: Linux
+  installs can sync OpenAI-bundled `chrome` and `browser-use` resources beside
+  a sky-cua-backed `computer-use` compatibility plugin
+- Chrome/Brave/Chromium native-host manifest preflight on Linux through
+  `resources/chrome_preflight.py` and the `bin/sky-cua-browser-preflight`
+  wrapper
 
 ## Development
 
@@ -63,6 +90,15 @@ Run the runtime pieces directly:
 ./bin/sky-cua-service daemon
 ```
 
+When touching Linux launch or environment repair, run the detached session
+smokes as well:
+
+```bash
+python3 scripts/live_session_env_smoke.py
+python3 scripts/live_app_server_session_env_smoke.py
+python3 scripts/live_codex_exec_session_env_smoke.py
+```
+
 On Windows, use the `.exe` binaries:
 
 ```powershell
@@ -77,6 +113,66 @@ python3 scripts/build_plugin.py
 python3 scripts/install_plugin.py --bundle-root dist/plugin/sky-cua
 ```
 
+On Linux, `install_plugin.py` also runs browser preflight when the built bundle
+contains `resources/chrome_preflight.py`. That preflight syncs the local
+OpenAI-bundled marketplace cache for `chrome`, `browser-use`, and a
+`computer-use` compatibility entry, writes native-host manifests for Google
+Chrome, Brave, and Chromium, and enables `chrome@openai-bundled` plus
+`browser-use@openai-bundled` in `config.toml`. The compatibility
+`computer-use@openai-bundled` entry is staged but disabled so it does not
+collide with the active `sky-cua` MCP server.
+
+Run the browser preflight directly when debugging Codex Desktop browser
+integration:
+
+```bash
+bin/sky-cua-browser-preflight --codex-home ~/.codex
+```
+
+To stage OpenAI bundled Chrome/Browser Use resources during build, point the
+builder at an upstream Codex Desktop resource root:
+
+```bash
+SKY_CUA_UPSTREAM_CODEX_RESOURCES=/path/to/codex/resources \
+  python3 scripts/build_plugin.py
+```
+
+`SKY_CUA_OPENAI_BUNDLED_RESOURCE_ROOT` may also point directly at an
+`openai-bundled` marketplace root. If neither variable is set, the builder
+checks the sibling `../codex-desktop-linux/codex-app/resources/plugins/openai-bundled`
+path and skips Chrome/Browser Use staging with a warning when it is absent.
+
+Install the runtime as a plain MCP server for non-Codex hosts:
+
+```bash
+cargo build --release
+python3 scripts/install_mcp_server.py --target-dir ~/.local/share/sky-cua --host generic
+python3 scripts/install_mcp_server.py --target-dir ~/.local/share/sky-cua --host opencode
+python3 scripts/install_mcp_server.py --target-dir ~/.local/share/sky-cua --host openclaw
+```
+
+During local sky-cua development, add `--restart-runtime` after rebuilding and
+installing so OpenCode, Pi, or another MCP host stops any already-running
+installed `sky-cua-service`/helper processes and respawns from the new binaries
+on the next tool call:
+
+```bash
+python3 scripts/install_mcp_server.py --target-dir ~/.local/share/sky-cua --host opencode --bin-dir ~/.local/bin --restart-runtime
+python3 scripts/install_mcp_server.py --target-dir ~/.local/share/sky-cua --host pi --bin-dir ~/.local/bin --restart-runtime
+python3 scripts/install_mcp_server.py --target-dir ~/.local/share/sky-cua --host openclaw --bin-dir ~/.local/bin --restart-runtime
+```
+
+If the host does not reconnect automatically after the runtime is stopped,
+restart or reload the host session. For Pi, run `/reload` or restart Pi.
+OpenClaw installs through `openclaw mcp set sky_cua <config>` and copies skills
+into `~/.openclaw/workspace/skills`.
+
+For production-like Linux GUI and non-Codex harness proof, use the Arch
+`testing-vm` path in `docs/operations/gui-desktop-test-harness.md`. The VM provisioner
+installs OpenCode, and `scripts/testing-vm/sync-opencode-to-vm.sh` copies the
+host OpenCode config/auth without copying the host OpenCode database, logs, or
+snapshots.
+
 Deploy local Codex plugin builds:
 
 ```bash
@@ -87,13 +183,20 @@ python3 scripts/deploy_release_plugin.py
 `deploy_debug_plugin.py` keeps the direct debug-cache install as
 `sky-cua@debug`. `deploy_release_plugin.py` stages a release bundle through the
 local Heliasar marketplace checkout under `~/projects/heliasar-marketplace`,
-installs it through Codex, and enables `sky-cua@Heliasar` without changing the
-configured marketplace source. `publish_marketplace_release.py` commits and
-pushes that marketplace checkout before upgrading the Codex Git marketplace.
-The deploy scripts switch debug and release plugin ids mutually so Codex does
-not see duplicate `computer-use` MCP servers. Deploys preserve already-staged
-binaries for other platforms, so rebuilding on Linux does not delete Windows
-`.exe` binaries from the local marketplace and vice versa.
+installs it through Codex, and enables `sky-cua@Heliasar`. If
+`~/.codex/config.toml` already has a Heliasar marketplace source, release deploy
+preserves it; otherwise it configures the local checkout as
+`[marketplaces.Heliasar]`. The deploy scripts switch debug and release plugin
+ids mutually so Codex does not see duplicate `computer-use` MCP servers, and
+`computer-use@openai-bundled` should remain disabled when `sky-cua@Heliasar` is
+active. Deploys preserve already-staged binaries for other platforms, so
+rebuilding on Linux does not delete Windows `.exe` binaries from the local
+marketplace and vice versa.
+
+If the local Codex config gets stale, the durable reset procedure is documented
+in `docs/runtime/mcp-boundary.md` under "Codex release deploy and config reset".
+`publish_marketplace_release.py` commits and pushes the marketplace checkout
+before upgrading the Codex Git marketplace.
 
 Reset persisted portal restore tokens:
 
@@ -109,26 +212,34 @@ portal approval, installed apps, or local Codex auth.
 ```bash
 python3 scripts/live_desktop_smoke.py
 python3 scripts/live_portal_downgrade_smoke.py
-python3 scripts/live_x11_smoke.py
 python3 scripts/live_kate_smoke.py
 python3 scripts/live_krita_smoke.py
 python3 scripts/live_app_server_smoke.py
-python3 scripts/live_app_server_tidal_playlist.py
+python3 scripts/live_wayland_pointer_smoke.py
+python3 scripts/run_gui_testing_vm_smoke.py --host testing-vm --profile computer-use
 ```
+
+`scripts/run_gui_testing_vm_smoke.py` is the current Linux GUI matrix runner.
+It targets the Arch `testing-vm` with real guest desktop sessions rather than
+embedded X servers or container-nested compositors. It only copies selected
+host Codex auth/config into the VM when `--sync-codex-settings` is set.
 
 Diagnostic or legacy lanes:
 
 ```bash
 python3 scripts/live_codex_exec_smoke.py
-python3 scripts/live_codex_exec_tidal_playlist.py
 python3 scripts/live_kdialog_smoke.py
 ```
 
 For the full installed-plugin ChatGPT-auth E2E investigation, see
-`docs/codex-plugin-e2e-expedition.md`.
+`docs/research/2026-04-codex-plugin-chatgpt-auth-expedition.md`.
 
 For the portable runtime boundary and host-adapter expectations, see
-`docs/mcp-runtime.md`.
+`docs/runtime/mcp-boundary.md`.
+
+For the current Codex Desktop compatibility surface, including the Browser
+Use / Chrome companion plugin coverage and the native messaging host, see
+`docs/features/codex-desktop-compat.md`.
 
 ## Current Limitations
 
@@ -157,6 +268,20 @@ For the portable runtime boundary and host-adapter expectations, see
 - Installed-plugin harnesses are opt-in acceptance tools, not default regression
   tests. The rich-client path uses `codex app-server`; `codex exec` remains a
   diagnostic probe.
+- Browser Use support currently relies on Codex Desktop's bundled `chrome` and
+  `browser-use` plugins plus the Linux native-host preflight. `sky-cua` does not
+  yet expose first-class `browser_*` MCP tools of its own.
+- GNOME Shell extension setup installs files and asks GNOME to enable the
+  extension, but GNOME may still require a Shell reload or login restart before
+  the extension DBus backend appears.
+- Cross-desktop cursor proof is live on the Arch `testing-vm` for KDE/KWin,
+  GNOME, Hyprland, i3/X11, and COSMIC helper/cursor modes. The remaining
+  desktop-matrix work is narrower: broader registry/list/focus re-smokes on
+  some desktops and routine reruns after harness or compositor changes.
+- Normal unpatched COSMIC still has no dynamic compositor cursor hide/show API.
+  The no-patch `cosmic_transparent_xcursor` mode keeps the native cursor
+  transparent for the full session instead of restoring it when the overlay
+  hides.
 - Windows v1 is intentionally conservative: it exposes real top-level window
   bounds and physical actions, but does not yet provide rich UI Automation
   child trees or semantic invoke/value routing.

@@ -1,53 +1,76 @@
-# Docs and Plans Guide
+# Docs Guide
 
-## Package Identity
+`docs/` holds durable project knowledge: stable runtime contracts
+(`runtime/`), one descriptive document per shipped subsystem (`features/`),
+operator-facing runbooks (`operations/`), and dated research findings
+(`research/`, filenames `YYYY-MM-<slug>.md`). It is not a place for
+in-flight design (that lives in `plans/`) or live session state (which is
+not recorded in repo files).
 
-`docs/` and `plans/` hold durable investigation writeups, implementation plans, and operator-facing context.
-They should explain proven behavior and current seams without becoming transcripts.
+Docs are durable narrative, not live task state. `NOTES.md` stores reusable
+tactical facts; do not duplicate large sections between the two. Feature doc
+`Verification` sections own artifact paths; do not also list them in
+`NOTES.md`.
 
-## Setup & Run
+## Feature Doc Template
 
-```bash
-rg -n "TODO|FIXME|blocked|proof|artifact" docs plans
-python3 scripts/build_plugin.py
+Every `docs/features/<slug>.md` follows this shape:
+
+```markdown
+# <Feature name>
+
+## Status
+
+Shipped / Partial / Deprecated. Last verified: <date / commit / artifact>.
+
+## Summary
+
+1–3 sentences. What this feature does for the user or agent.
+
+## Contract surface
+
+MCP tools, fields, env vars, IPC variants, file paths the feature exposes.
+What callers can rely on. What is intentionally not stable.
+
+## Behavior
+
+How it actually works at runtime. Selection rules, fallback ladders,
+diagnostics emitted, side effects.
+
+## Source paths
+
+Concrete `crates/...`, `scripts/...`, `resources/...` references.
+
+## Verification
+
+Unit/integration tests, live smokes, and the most recent accepted artifact.
+
+## Known limitations
+
+Honest list. Things deferred, environments not yet covered, partial paths.
+
+## Related
+
+Research extracts, ROADMAP entry, originating ExecPlan if archived.
 ```
 
-## Patterns & Conventions
+Do not include `Progress`, `Surprises & Discoveries`, or `Decision Log` in
+feature docs; those are ExecPlan concerns and stay with the plan.
 
-- Use `docs/` for durable writeups like `docs/mcp-runtime.md` and
-  `docs/codex-plugin-e2e-expedition.md`.
-- Use `plans/` for focused design/implementation notes like `plans/wayland_fallback_vision_anchors.md`.
-- Keep artifact references path-specific and summarize only the proof that matters.
-- Update docs only when behavior, commands, or operational truth changed.
-- DO: Follow the evidence-heavy style in `docs/codex-plugin-e2e-expedition.md` for E2E investigations.
-- DO: Follow the scoped-plan style in `plans/wayland_fallback_vision_anchors.md` for design work.
-- DON'T: Paste raw transcripts or giant JSON blobs; point to artifact paths and summarize.
-- DON'T: Document speculative future behavior as if it already works.
+## Research Doc Scope
 
-## Touch Points / Key Files
+A research doc answers ONE research question with evidence and a conclusion:
+self-contained, dated in the filename, not a living document. Use for
+experiment outcomes, comparisons, third-party investigations, and
+postmortems of one decision — not for transcripts, raw artifact dumps, or
+per-session notes. Shape: `## Context` (what prompted it), `## Investigation`
+(evidence), `## Conclusion` (what we now believe, concrete enough to act
+on), `## Implications` (what it changed).
 
-- Full installed-plugin E2E investigation: `docs/codex-plugin-e2e-expedition.md`
-- Portable runtime boundary: `docs/mcp-runtime.md`
-- Linux implementation plan: `docs/computer-use-linux-plan.md`
-- Wayland fallback anchors plan: `plans/wayland_fallback_vision_anchors.md`
-- Live state snapshot: `../CONTINUITY.md`
-- Durable tactical notes: `../NOTES.md`
+## When a Feature Ships
 
-## JIT Index Hints
-
-- Find artifact references: `rg -n "artifacts/|last-message|summary.json|jsonl" docs plans`
-- Find current blockers: `rg -n "blocker|blocked|remaining|next" docs plans`
-- Find command snippets: `rg -n "python3 scripts|cargo|uv run|codex" docs plans`
-- Find docs that mention a seam: `rg -n "PipeWire|KWin|TIDAL|app-server|ChatGPT-auth" docs plans`
-
-## Common Gotchas
-
-- `CONTINUITY.md` is the live handoff snapshot; docs are durable narrative, not live task state.
-- `NOTES.md` stores reusable facts; do not duplicate large sections into docs.
-- If a doc says a live proof exists, include the exact command or artifact path.
-
-## Pre-PR Checks
-
-```bash
-rg -n "TODO|FIXME|PLACEHOLDER" docs plans && false || true
-```
+1. Add or update `docs/features/<slug>.md` using the template above.
+2. Extract any durable research into `docs/research/YYYY-MM-<slug>.md`.
+3. Update the relevant `ROADMAP.md` entry (check the box, link the feature
+   doc, add follow-up sub-items if partial work remains).
+4. Retire the originating ExecPlan per `plans/AGENTS.md`.
