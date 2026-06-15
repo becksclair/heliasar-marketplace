@@ -12,38 +12,39 @@ Codex Desktop detects Computer Use plugins by the built-in plugin name
 `computer-use`, so `computer-use@openai-bundled` (the compat plugin root the
 chrome preflight materializes under
 `~/.codex/plugins/cache/openai-bundled/computer-use/`) is the single enabled
-computer-use plugin. Both `sky-cua@debug` and `sky-cua@Heliasar` stay
+computer-use plugin. Both `sky-cua@local` and `sky-cua@Heliasar` stay
 installed but disabled; they are payload carriers, not the active plugin id.
 
-Debug-versus-release selection happens by retargeting the compat root, not by
+Local-versus-release selection happens by retargeting the compat root, not by
 toggling channel ids:
 
-- Debug work: `deploy_debug_plugin.py` reruns the preflight from the debug
-  install, so the compat root's `.mcp.json` launches the debug payload.
-- Release work: `publish_marketplace_release.py` / `deploy_release_plugin.py`
-  rerun the preflight from the installed Heliasar cache payload
+- Local work: `deploy_plugin.py` reruns the preflight from the local install,
+  so the compat root's `.mcp.json` launches the local payload.
+- Release work: `deploy_plugin.py --publish` (through
+  `publish_marketplace_release.py` / `deploy_release_plugin.py`) reruns the
+  preflight from the installed Heliasar cache payload
   (`~/.codex/plugins/cache/Heliasar/sky-cua/<version>`), so the compat root
   launches the published release.
 
 Fallback: when a bundle ships without the openai-bundled resources (no compat
 root can be materialized — minimal test bundles, non-Linux), the deploy
-scripts fall back to enabling the matching sky-cua channel id directly.
+falls back to enabling the matching sky-cua channel id directly.
 
-Do not remove the Heliasar marketplace just to work on debug builds.
+Do not remove the Heliasar marketplace just to work on local builds.
 
-## Debug Iteration
+## Local Iteration
 
 When changing Rust code, scripts, app guidance, skills, plugin metadata, or
-local bundle contents, deploy the debug plugin:
+local bundle contents, deploy the local plugin:
 
 ```bash
-python3 scripts/deploy_debug_plugin.py
+python3 scripts/deploy_plugin.py
 ```
 
 Use `--no-build` only when `dist/plugin/sky-cua` is already current:
 
 ```bash
-python3 scripts/deploy_debug_plugin.py --no-build
+python3 scripts/deploy_plugin.py --no-build
 ```
 
 Verify the active MCP server when needed:
@@ -52,19 +53,21 @@ Verify the active MCP server when needed:
 codex mcp list --json
 ```
 
-The `computer-use` server should point at a debug cache path, not the
-Heliasar cache. The server is provided by `computer-use@openai-bundled`;
-whether it runs debug or release bits is visible in the server command path.
+The `computer-use` server should point at the local cache path
+(`~/.codex/plugins/cache/local/sky-cua/local`), not the Heliasar cache. The
+server is provided by `computer-use@openai-bundled`; whether it runs local or
+release bits is visible in the server command path.
 
 ## Publish Release
 
 For the personal marketplace release path:
 
 ```bash
-python3 scripts/publish_marketplace_release.py
+python3 scripts/deploy_plugin.py --publish
 ```
 
-This builds `dist/plugin/sky-cua`, stages it into
+This delegates to `publish_marketplace_release.py` (flags after `--publish`
+forward to it). It builds `dist/plugin/sky-cua`, stages it into
 `~/projects/heliasar-marketplace/plugins/sky-cua`, writes the marketplace
 manifest, commits marketplace changes, pushes `origin main`, upgrades the
 Codex marketplace, installs the plugin, regenerates the `computer-use` compat

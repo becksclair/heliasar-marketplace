@@ -94,7 +94,7 @@ Install-time (`scripts/install_plugin.py`,
 
 - Installs the bundle and runs browser preflight on Linux when the
   built bundle contains `resources/chrome_preflight.py`.
-- The deploy scripts switch `sky-cua@debug` and `sky-cua@Heliasar`
+- The deploy modes switch `sky-cua@local` and `sky-cua@Heliasar`
   mutually so Codex never sees duplicate computer-use servers.
 - Deploys preserve already-staged binaries for other platforms:
   rebuilding on Linux does not delete Windows `.exe` binaries from
@@ -121,8 +121,10 @@ log so the extension's session lifecycle is honored.
 - `scripts/build_plugin.py` — release bundle builder (stages
   bundled-plugin cache, embeds Chrome host).
 - `scripts/install_plugin.py` — local install path.
-- `scripts/deploy_debug_plugin.py`, `scripts/deploy_release_plugin.py`
-  — debug-cache and Heliasar-marketplace deploys.
+- `scripts/deploy_plugin.py` — fast local deploy (`sky-cua@local`);
+  `--publish` forwards to the Heliasar release library.
+- `scripts/deploy_release_plugin.py` — internal Heliasar-marketplace
+  release-install library used by the publish path.
 - `scripts/publish_marketplace_release.py` — pushes the marketplace
   checkout before upgrading the Codex Git marketplace source.
 - `resources/chrome_preflight.py` — preflight that syncs bundled

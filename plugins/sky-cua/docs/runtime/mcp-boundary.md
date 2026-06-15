@@ -98,7 +98,7 @@ That command builds `dist/plugin/sky-cua`, stages the bundle into
 `~/projects/heliasar-marketplace/plugins/sky-cua`, writes
 `~/projects/heliasar-marketplace/.agents/plugins/marketplace.json`, asks
 `codex app-server` to install `sky-cua`, enables `sky-cua@Heliasar`, disables
-`sky-cua@debug`, and reloads MCP servers. The installed cache is an output of
+`sky-cua@local`, and reloads MCP servers. The installed cache is an output of
 Codex's plugin install path:
 
 ```text
@@ -113,7 +113,7 @@ normalize are:
 ```toml
 notify = ["/Users/rebecca/.codex/reverse-engineering/computer-use-...", "turn-ended"]
 
-[plugins."sky-cua@debug"]
+[plugins."sky-cua@local"]
 enabled = false
 
 [plugins."sky-cua@Heliasar"]
@@ -140,7 +140,7 @@ enabled = false
 [plugins."sky-cua@Heliasar"]
 enabled = true
 
-[plugins."sky-cua@debug"]
+[plugins."sky-cua@local"]
 enabled = false
 
 [marketplaces.Heliasar]
@@ -259,12 +259,21 @@ forward compatibility; an unparseable file surfaces as a
 The host-facing tools are the portable product contract. Current tools:
 
 - readiness/setup: `doctor`, `setup_accessibility`, `setup_window_targeting`
+- session presence: `hold_session`, `unlock_session`, `release_session`, and
+  `session_presence_status`
 - app/window discovery: `list_apps`, `list_windows`, `focused_window`,
   `activate_window`
-- state capture: `get_app_state`, with `detail: "full"` by default,
-  `detail: "compact"` for repeated screenshot-first loops, and
+- state capture: `get_app_state`, with `detail: "compact"` by default and
+  `detail: "full"` as the exhaustive inspection mode. Compact MCP responses
+  default to 200 returned elements while preserving `element_count`/
+  `filtered_element_count` metadata; use `element_query`, `element_offset`,
+  and `element_limit` to page or narrow dense accessibility trees. Use
   `screenshot_delivery: "inline"` to attach the captured screenshot as an MCP
   image content block for hosts that cannot read `screenshot_path` files
+- visual capture: `screenshot`, which defaults to the primary display, accepts
+  the same window target fields as `activate_window`, accepts
+  `display_id`/`display_name`/`display_index` from `environment.displays`, and
+  uses `capture_all_displays=true` as the explicit full-virtual-desktop opt-in
 - semantic element actions: `focus_element`, `activate_element`,
   `select_element`, `expand_element`, `collapse_element`, `toggle_element`,
   and `perform_action`
@@ -275,12 +284,15 @@ The host-facing tools are the portable product contract. Current tools:
   `browser_list_tabs`, `browser_open`, `browser_claim_tab`,
   `browser_move_mouse`, `browser_navigate`, `browser_snapshot`,
   `browser_screenshot`, `browser_click`, `browser_type_text`,
-  `browser_press_key`, `browser_scroll`, and `browser_eval`
+  `browser_press_key`, and `browser_scroll`
 
-Browser tools do not require a host-specific enable flag. Codex Desktop may
-still use the companion Browser Use/Chrome plugin path until its adapter
-delegates to this shared browser surface, while host-specific configs emitted by
-`scripts/install_mcp_server.py` can pass browser-selection environment such as
+Browser tools do not require a host-specific enable flag. `browser_eval` is the
+security-gated exception and is advertised only when `SKY_CUA_BROWSER_EVAL` is
+`on`, `1`, or `true`.
+Codex Desktop may still use the companion Browser Use/Chrome plugin path until
+its adapter delegates to this shared browser surface, while host-specific
+configs emitted by `scripts/install_mcp_server.py` can pass browser-selection
+environment such as
 `SKY_CUA_BROWSER`.
 
 Every tool definition carries MCP `ToolAnnotations` (`readOnlyHint`,
@@ -290,20 +302,25 @@ tools and prompts for destructive or open-world ones, and treats unannotated
 tools as both. The hints are honest by policy, not flattering: observation
 tools (`doctor`, `list_apps`, `list_windows`, `focused_window`,
 `get_app_state`, `browser_status`, `browser_list_tabs`, `browser_snapshot`,
-`browser_screenshot`) are read-only; focus/selection/expansion moves and tab
+`browser_screenshot`, `session_presence_status`) are read-only;
+focus/selection/expansion moves, session hold/release/unlock requests, and tab
 claims are non-destructive and idempotent; arbitrary input (`click`,
 `type_text`, `press_key`, `drag`, `perform_action`, `activate_element`,
-`browser_click`, `browser_type_text`, `browser_press_key`, `browser_eval`)
-stays destructive because it can trigger any in-app action, and live-web
-actions are additionally open-world. The full table is pinned by
-`mcp_tools::annotation_tests`; changing a row changes what hosts
-auto-approve and must be deliberate.
+`browser_click`, `browser_type_text`, `browser_press_key`, and enabled
+`browser_eval`) stays destructive because it can trigger any in-app action.
+Live-web actions are additionally open-world; `browser_scroll` is
+non-destructive but still open-world because it mutates a real web page's
+viewport or scrollable DOM state. The full table is pinned by
+`mcp_tools::annotation_tests`; changing a row changes what hosts auto-approve
+and must be deliberate.
 
 Browser target names are not interchangeable. `user_chrome` is the user's
 already-running Chrome-family browser, reached through the extension/native-host
-bridge. `managed` is reserved for a future sky-cua-owned isolated browser
-context. Until sky-cua can launch and own that isolated context, browser tools
-accept `user_chrome` only and reject `managed` honestly. `browser_open(user_chrome)`
+bridge. A managed sky-cua-owned isolated browser context was once planned and
+was retired on 2026-06-11 because an isolated profile loses the logged-in
+sessions that make real-browser control useful. The `managed` target has been
+removed from the wire contract entirely; browser tools accept `user_chrome` only
+and reject any other `target` string at argument parsing. `browser_open(user_chrome)`
 creates a new session-owned tab and may navigate it to `http://`, `https://`, or
 `about:blank`. Existing tabs returned by `browser_list_tabs(user_chrome)` must be
 adopted with `browser_claim_tab` before browser actions can target them, and the
@@ -324,11 +341,23 @@ coordinates by DPR manually.
 desktop. The image is attached to the MCP result as an image content block for
 image-capable sessions, persisted to the file named in
 `structuredContent.screenshot_path`, and never repeated as base64 inside
-`structuredContent`. `browser_scroll` currently scrolls the page viewport through
-`window.scrollBy(...)` because CDP mouse-wheel dispatch timed out through the
-live extension bridge. `browser_snapshot` returns page title, URL, viewport,
-body text, and common actionable element summaries; it is not an accessibility
-tree and should not be treated as a replacement for desktop `get_app_state`.
+`structuredContent`. When the initialized model session cannot receive images,
+the MCP client requests a path-backed screenshot without response image data.
+`browser_scroll` currently uses `Runtime.evaluate` because CDP mouse-wheel
+dispatch timed out through the live extension bridge. Calls must provide a
+non-zero `delta_x` or `delta_y`. When `x`/`y` are provided together, it moves the
+browser agent cursor to that point and scrolls the nearest scrollable DOM
+ancestor under it, falling back to the page viewport. When `x`/`y` are omitted,
+it scrolls the page viewport directly through `window.scrollBy(...)`.
+`browser_snapshot` returns page title, URL, viewport, bounded body text, and
+common actionable element summaries; `text_limit` defaults to 4000 for MCP
+calls, can be 0 to omit text, and can be raised to 20000. Element
+query/offset/limit projection is applied in the service before the CDP result
+crosses the IPC boundary, with a maximum returned element budget of 5000. When
+page text is omitted or truncated before the service can count it exactly,
+`textCharCount` is `null` and `textTruncated` carries the known truncation
+state. It is not an accessibility tree and should not be treated as a
+replacement for desktop `get_app_state`.
 
 `doctor` includes Linux `session_env` repair details when the runtime had to
 recover detached desktop state. `repaired` records which keys were filled and
@@ -337,10 +366,16 @@ from which source, `path_changed` reports whether `PATH` was normalized, and
 snapshot/list diagnostics may include `SessionEnvRepaired`; treat that as
 useful context that the runtime recovered, not as an error by itself.
 
-Action tools accept `snapshot_id` from the latest `get_app_state` result. With
-`snapshot_id`, explicit coordinates are screenshot pixel coordinates from that
-snapshot image. Without `snapshot_id`, supported coordinate actions use the
-current screen coordinate space exposed by the active input backend.
+Action tools accept `snapshot_id` from the latest `get_app_state` or
+`screenshot` result. With a captured snapshot that includes capture metadata,
+explicit coordinates are screenshot pixels from that image. A structure-only
+`get_app_state` snapshot_id still scopes `element_index` lookups, but cannot
+translate screenshot pixels. Without capture metadata, supported coordinate
+actions use the current screen coordinate space exposed by the active input
+backend.
+Desktop snapshots may be cropped to a window or one display; callers should
+always pass the matching `snapshot_id` so the backend can translate screenshot
+pixels through `capture.logical_rect` and the backend-specific source rect.
 
 `get_app_state` elements may include readback fields when the backend can prove
 them. On Linux, focused or editable AT-SPI Text controls can populate
@@ -354,8 +389,11 @@ agents can verify text entry without switching back to full detail.
 `list_windows`, `focused_window`, and `activate_window` use native window
 metadata when available. Linux currently probes GNOME Shell extension, GNOME
 Shell Introspect, COSMIC helper, KWin/Plasma, Hyprland, i3, and X11 metadata
-backends. Window payloads may include bounds, workspace, PID, client type, and
-terminal metadata depending on what the backend can prove.
+backends. Window payloads may include bounds, workspace, PID, client type,
+display assignment, spanning-display intersections, and terminal metadata
+depending on what the backend can prove. `get_app_state` and `screenshot`
+surface `environment.displays`; agents should use those display IDs instead of
+guessing monitor names.
 
 ## Adapter split
 
@@ -464,5 +502,6 @@ an adapter-specific file and keep the shared workflow guidance neutral.
 Do not make Chrome/Browser Use packaging behavior a dependency of the core MCP
 runtime. The native-host and bundled-plugin cache work is an adapter layer for
 Chrome-family browser access. First-class browser MCP behavior is exposed
-through the shared browser tool contract; `user_chrome` is implemented today,
-while managed browser lifecycle remains future work.
+through the shared browser tool contract; `user_chrome` is the only browser
+target, and the managed/isolated browser lifecycle was retired and removed from
+the wire contract.

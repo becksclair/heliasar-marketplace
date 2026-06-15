@@ -191,22 +191,25 @@ snapshots.
 Deploy local Codex plugin builds:
 
 ```bash
-python3 scripts/deploy_debug_plugin.py
-python3 scripts/deploy_release_plugin.py
+python3 scripts/deploy_plugin.py            # fast local deploy (sky-cua@local)
+python3 scripts/deploy_plugin.py --publish  # publish a Heliasar marketplace release
 ```
 
-`deploy_debug_plugin.py` keeps the direct debug-cache install as
-`sky-cua@debug`. `deploy_release_plugin.py` stages a release bundle through the
-local Heliasar marketplace checkout under `~/projects/heliasar-marketplace`,
-installs it through Codex, and enables `sky-cua@Heliasar`. If
-`~/.codex/config.toml` already has a Heliasar marketplace source, release deploy
-preserves it; otherwise it configures the local checkout as
-`[marketplaces.Heliasar]`. The deploy scripts switch debug and release plugin
-ids mutually so Codex does not see duplicate `computer-use` MCP servers, and
-`computer-use@openai-bundled` should remain disabled when `sky-cua@Heliasar` is
-active. Deploys preserve already-staged binaries for other platforms, so
-rebuilding on Linux does not delete Windows `.exe` binaries from the local
-marketplace and vice versa.
+The default `deploy_plugin.py` is the fast local lane: it installs the built
+bundle into the local Codex payload as `sky-cua@local`, retargets the
+`computer-use@openai-bundled` compat plugin at it, and refreshes the installed
+MCP runtime — no git, no Codex `plugin/install`. `deploy_plugin.py --publish`
+stages a release bundle through the local Heliasar marketplace checkout under
+`~/projects/heliasar-marketplace`, commits and pushes it, installs it through
+Codex, and enables `sky-cua@Heliasar`. If `~/.codex/config.toml` already has a
+Heliasar marketplace source, publish preserves it; otherwise it configures the
+local checkout as `[marketplaces.Heliasar]`. In compat-first mode
+`computer-use@openai-bundled` is the single enabled `computer-use` plugin and
+both `sky-cua@local` and `sky-cua@Heliasar` stay disabled payload carriers; the
+active payload is chosen by retargeting the compat root, so Codex never sees
+duplicate `computer-use` MCP servers. Deploys preserve already-staged binaries
+for other platforms, so rebuilding on Linux does not delete Windows `.exe`
+binaries from the local marketplace and vice versa.
 
 If the local Codex config gets stale, the durable reset procedure is documented
 in `docs/runtime/mcp-boundary.md` under "Codex release deploy and config reset".
